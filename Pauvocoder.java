@@ -58,31 +58,35 @@ public class Pauvocoder {
      * @param freqScale
      * @return resampled wav
      */
-    public static double[] resample(double[] inputWav, double freqScale) {
-        // throw new UnsupportedOperationException("Not implemented yet");
-
-        if (freqScale == 0 ){
-            return inputWav;
-        }
-        if (freqScale < 1 ){
-            // Sur echantillonage => moins d'echantillon
-
-
-        }
-        if (freqScale > 1 ){
-            // Sous echantillonage => plus d'echantillon
-            int newLenght = (int) (inputWav.length / freqScale);
-            double[] inputWav2 = new double[newLenght];
-
-            for(int i = 0; i < newLenght; i++){
-                int indice = (int) (i / freqScale);
-                inputWav2[i] = inputWav[indice];
-            }
+    public static double[] resample(double[] input, double freqScale) {
+        if (freqScale <= 0) {
+            throw new IllegalArgumentException("Le facteur de ré-échantillonnage doit être supérieur à 0.");
         }
 
+        // Si freqScale est égal à 1, aucun ré-échantillonnage nécessaire
+        if (freqScale == 1.0) {
+            return input.clone();
+        }
 
-        return inputWav;
+        // Calcul du nouveau nombre d'échantillons
+        int newLength = (int) Math.round(input.length * freqScale);
+        double[] input2 = new double[newLength];
+
+        // Interpolation pour ajuster les échantillons
+        for (int i = 0; i < newLength; i++) {
+            // Trouver la position dans le signal d'entrée
+            double srcIndex = i / freqScale;
+            int srcIndexFloor = (int) Math.floor(srcIndex);
+            int srcIndexCeil = Math.min(srcIndexFloor + 1, input.length - 1);
+
+            // Interpolation linéaire
+            double weight = srcIndex - srcIndexFloor;
+            input2[i] = (1 - weight) * input[srcIndexFloor] + weight * input[srcIndexCeil];
+        }
+
+        return input2;
     }
+
 
     /**
      * Simple dilatation, without any overlapping
