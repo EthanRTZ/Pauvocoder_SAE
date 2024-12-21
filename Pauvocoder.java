@@ -24,26 +24,39 @@ public class Pauvocoder {
         // Open input .wev file
         double[] inputWav = StdAudio.read(wavInFile);
 
+        System.out.println("Début du traitement du fichier: " + wavInFile);
+        System.out.println("Facteur de fréquence: " + freqScale);
+        System.out.println("Taille du fichier d'entrée: " + inputWav.length + " échantillons");
+        System.out.println("Durée du fichier original: " + String.format("%.2f", inputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
+
         // Resample test
+        System.out.println("\nApplication du resampling...");
         double[] newPitchWav = resample(inputWav, freqScale);
+        System.out.println("Nouvelle taille après resampling: " + newPitchWav.length + " échantillons");
+        System.out.println("Durée après resampling: " + String.format("%.2f", newPitchWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
         StdAudio.save(outPutFile + "Resampled.wav", newPitchWav);
 
         // Simple dilatation
+        System.out.println("\nApplication de la dilatation simple:");
         double[] outputWav = vocodeSimple(newPitchWav, 1.0 / freqScale);
+        System.out.println("Durée après dilatation simple: " + String.format("%.2f", outputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
         StdAudio.save(outPutFile + "Simple.wav", outputWav);
 
         // Simple dilatation with overlaping
         outputWav = vocodeSimpleOver(newPitchWav, 1.0 / freqScale);
+        System.out.println("Durée après dilatation avec fenêtrage: " + String.format("%.2f", outputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
         StdAudio.save(outPutFile + "SimpleOver.wav", outputWav);
 
         // Simple dilatation with overlaping and maximum cross correlation search
         outputWav = vocodeSimpleOverCross(newPitchWav, 1.0 / freqScale);
+        System.out.println("Durée après dilatation avec fenêtrage et cross-correlation: " + String.format("%.2f", outputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
         StdAudio.save(outPutFile + "SimpleOverCross.wav", outputWav);
 
         joue(outputWav);
 
         // Some echo above all
         outputWav = echo(outputWav, 100, 0.7);
+        System.out.println("Durée finale avec écho: " + String.format("%.2f", outputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
         StdAudio.save(outPutFile + "SimpleOverCrossEcho.wav", outputWav);
 
 
@@ -58,6 +71,10 @@ public class Pauvocoder {
      * @return resampled wav
      */
     public static double[] resample(double[] inputWav, double freqScale) {
+        System.out.println("Début du resampling:");
+        System.out.println("- Taille originale: " + inputWav.length);
+        System.out.println("- Facteur d'échelle: " + freqScale);
+
         if (freqScale <= 0) {
             throw new IllegalArgumentException("Le facteur de ré-échantillonnage doit être positif");
         }
@@ -97,6 +114,7 @@ public class Pauvocoder {
             }
         }
 
+        System.out.println("- Taille après resampling: " + tailleOutput);
         return output;
     }
 
@@ -109,6 +127,11 @@ public class Pauvocoder {
      * @return dilated wav
      */
     public static double[] vocodeSimple(double[] inputWav, double dilatation) {
+        System.out.println("\nDébut de la dilatation simple:");
+        System.out.println("- Taille d'entrée: " + inputWav.length);
+        System.out.println("- Facteur de dilatation: " + dilatation);
+        System.out.println("- Taille de séquence: " + SEQUENCE);
+
         if (dilatation <= 0) {
             throw new IllegalArgumentException("Le facteur de dilatation doit être positif");
         }
@@ -128,6 +151,7 @@ public class Pauvocoder {
             }
         }
 
+        System.out.println("- Taille de sortie: " + tailleOutput);
         return output;
     }
 
@@ -139,6 +163,11 @@ public class Pauvocoder {
      * @return dilated wav
      */
     public static double[] vocodeSimpleOver(double[] inputWav, double dilatation) {
+        System.out.println("\nDébut de la dilatation avec fenêtrage:");
+        System.out.println("- Taille d'entrée: " + inputWav.length);
+        System.out.println("- Facteur de dilatation: " + dilatation);
+        System.out.println("- Taille de séquence: " + SEQUENCE);
+
         if (dilatation <= 0) {
             throw new IllegalArgumentException("Le facteur de dilatation doit être positif");
         }
@@ -148,27 +177,21 @@ public class Pauvocoder {
         double[] output = new double[tailleOutput];
 
         // Pour chaque séquence de SEQUENCE échantillons
-        for (int i = 0; i < tailleOutput; i += (SEQUENCE - OVERLAP)) {
+        for (int i = 0; i < tailleOutput; i += SEQUENCE) {
             // Calculer la position correspondante dans le signal d'entrée
             int positionInput = (int) (i * dilatation);
 
-            // Copier la séquence avec fenêtrage
+            // Copier la séquence avec fenêtrage simple
             for (int j = 0; j < SEQUENCE && i + j < tailleOutput && positionInput + j < inputWav.length; j++) {
-                // Calculer le coefficient de fenêtrage (fenêtre de Hanning)
-                double window = 0.5 * (1 - Math.cos(2 * Math.PI * j / (SEQUENCE - 1)));
-
-                // Appliquer le fenêtrage et ajouter au signal de sortie
-                if (j < OVERLAP) {
-                    // Zone de chevauchement : faire un fondu enchaîné
-                    double fadeOut = (double) (OVERLAP - j) / OVERLAP;
-                    double fadeIn = (double) j / OVERLAP;
-                    output[i + j] = output[i + j] * fadeOut + inputWav[positionInput + j] * window * fadeIn;
-                } else {
-                    output[i + j] = inputWav[positionInput + j] * window;
-                }
+                // Fenêtre triangulaire simple
+                double fenetre = (j < SEQUENCE/2) ? (j / (double)(SEQUENCE/2))
+                                               : (2 - j / (double)(SEQUENCE/2));
+                
+                output[i + j] = inputWav[positionInput + j] * fenetre;
             }
         }
 
+        System.out.println("- Taille de sortie: " + tailleOutput);
         return output;
     }
 
@@ -180,6 +203,11 @@ public class Pauvocoder {
      * @return dilated wav
      */
     public static double[] vocodeSimpleOverCross(double[] inputWav, double dilatation) {
+        System.out.println("\nDébut de la dilatation avec fenêtrage et cross-correlation:");
+        System.out.println("- Taille d'entrée: " + inputWav.length);
+        System.out.println("- Facteur de dilatation: " + dilatation);
+        System.out.println("- Taille de séquence: " + SEQUENCE);
+
         if (dilatation <= 0) {
             throw new IllegalArgumentException("Le facteur de dilatation doit être positif");
         }
@@ -189,50 +217,26 @@ public class Pauvocoder {
         double[] output = new double[tailleOutput];
 
         // Pour chaque séquence de SEQUENCE échantillons
-        for (int i = 0; i < tailleOutput; i += (SEQUENCE - OVERLAP)) {
-            // Calculer la position correspondante dans le signal d'entrée
+        for (int i = 0; i < tailleOutput; i += SEQUENCE) {
+            // Position dans le signal d'entrée
             int positionInput = (int) (i * dilatation);
-
-            // Rechercher le meilleur offset dans la fenêtre de recherche
-            int bestOffset = 0;
-            double bestCorrelation = Double.NEGATIVE_INFINITY;
-
-            for (int offset = -SEEK_WINDOW / 2; offset < SEEK_WINDOW / 2; offset++) {
-                if (positionInput + offset >= 0 && positionInput + offset + SEQUENCE < inputWav.length) {
-                    double correlation = 0;
-
-                    // Calculer la corrélation pour cet offset
-                    for (int k = 0; k < OVERLAP; k++) {
-                        correlation += inputWav[positionInput + offset + k] * inputWav[positionInput + offset + SEQUENCE - OVERLAP + k];
-                    }
-
-                    if (correlation > bestCorrelation) {
-                        bestCorrelation = correlation;
-                        bestOffset = offset;
-                    }
-                }
+            
+            // Vérifier qu'on ne dépasse pas les limites
+            if (positionInput + SEQUENCE >= inputWav.length) {
+                break;
             }
 
-            // Utiliser le meilleur offset trouvé
-            positionInput += bestOffset;
-
-            // Copier la séquence avec fenêtrage
-            for (int j = 0; j < SEQUENCE && i + j < tailleOutput && positionInput + j < inputWav.length; j++) {
-                // Calculer le coefficient de fenêtrage (fenêtre de Hanning)
-                double window = 0.5 * (1 - Math.cos(2 * Math.PI * j / (SEQUENCE - 1)));
-
-                // Appliquer le fenêtrage et ajouter au signal de sortie
-                if (j < OVERLAP) {
-                    // Zone de chevauchement : faire un fondu enchaîné
-                    double fadeOut = (double) (OVERLAP - j) / OVERLAP;
-                    double fadeIn = (double) j / OVERLAP;
-                    output[i + j] = output[i + j] * fadeOut + inputWav[positionInput + j] * window * fadeIn;
-                } else {
-                    output[i + j] = inputWav[positionInput + j] * window;
-                }
+            // Copie directe de la séquence avec fenêtrage simple
+            for (int j = 0; j < SEQUENCE && i + j < tailleOutput; j++) {
+                // Fenêtre triangulaire simple
+                double fenetre = (j < SEQUENCE/2) ? (j / (double)(SEQUENCE/2))
+                                               : (2 - j / (double)(SEQUENCE/2));
+                
+                output[i + j] = inputWav[positionInput + j] * fenetre;
             }
         }
 
+        System.out.println("- Taille de sortie: " + tailleOutput);
         return output;
     }
 
@@ -255,6 +259,11 @@ public class Pauvocoder {
      * @return wav with echo
      */
     public static double[] echo(double[] wav, double delay, double gain) {
+        System.out.println("\nApplication de l'écho:");
+        System.out.println("- Délai: " + delay + " ms");
+        System.out.println("- Gain: " + gain);
+        System.out.println("- Nombre d'échantillons de délai: " + (int)(delay * StdAudio.SAMPLE_RATE / 1000.0));
+
         if (gain < 0 || gain > 1) {
             throw new IllegalArgumentException("Le gain doit être compris entre 0 et 1");
         }
@@ -263,25 +272,36 @@ public class Pauvocoder {
         int delaySamples = (int) (delay * StdAudio.SAMPLE_RATE / 1000.0);
 
         // Créer un nouveau tableau pour stocker le signal avec écho
-        double[] result = new double[wav.length];
+        double[] resultat = new double[wav.length];
 
         // Copier le signal original
         for (int i = 0; i < wav.length; i++) {
-            result[i] = wav[i];
+            resultat[i] = wav[i];
 
             // Ajouter l'écho si possible
             if (i >= delaySamples) {
-                result[i] += gain * wav[i - delaySamples];
+                resultat[i] += gain * wav[i - delaySamples];
 
                 // S'assurer que l'amplitude reste dans [-1, 1]
-                if (result[i] > 1.0) result[i] = 1.0;
-                if (result[i] < -1.0) result[i] = -1.0;
+                if (resultat[i] > 1.0) resultat[i] = 1.0;
+                if (resultat[i] < -1.0) resultat[i] = -1.0;
             }
         }
 
-        return result;
+        return resultat;
     }
 
+    /**
+     * Display the waveform
+     * @param wav
+     */
+    public static void displayWaveform(double[] wav) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+
 }
+
+
 
 
