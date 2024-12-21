@@ -1,4 +1,7 @@
 import static java.lang.System.exit;
+import java.io.FileWriter;
+import java.io.PrintWriter;
+import java.io.IOException;
 
 public class Pauvocoder {
 
@@ -10,57 +13,68 @@ public class Pauvocoder {
     // Best OVERLAP offset seeking window (15 msec)
     final static int SEEK_WINDOW = 3 * OVERLAP / 4;
 
+    private static PrintWriter logFile;
+
     public static void main(String[] args) {
         if (args.length < 2) {
             System.out.println("usage: pauvocoder <input.wav> <freqScale>\n");
             exit(1);
         }
 
-
         String wavInFile = args[0];
         double freqScale = Double.valueOf(args[1]);
         String outPutFile = wavInFile.split("\\.")[0] + "_" + freqScale + "_";
+        
+        // Création du fichier de log
+        try {
+            logFile = new PrintWriter(new FileWriter(wavInFile.split("\\.")[0] + "_info_" + freqScale + ".txt"));
+        } catch (IOException e) {
+            System.err.println("Erreur lors de la création du fichier de log: " + e.getMessage());
+            exit(1);
+        }
+
+        // Modifier tous les System.out.println pour écrire aussi dans le fichier
+        log("Début du traitement du fichier: " + wavInFile);
+        log("Facteur de fréquence: " + freqScale);
 
         // Open input .wev file
         double[] inputWav = StdAudio.read(wavInFile);
 
-        System.out.println("Début du traitement du fichier: " + wavInFile);
-        System.out.println("Facteur de fréquence: " + freqScale);
-        System.out.println("Taille du fichier d'entrée: " + inputWav.length + " échantillons");
-        System.out.println("Durée du fichier original: " + String.format("%.2f", inputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
+        log("Taille du fichier d'entrée: " + inputWav.length + " échantillons");
+        log("Durée du fichier original: " + String.format("%.2f", inputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
 
         // Resample test
-        System.out.println("\nApplication du resampling...");
+        log("\nApplication du resampling...");
         double[] newPitchWav = resample(inputWav, freqScale);
-        System.out.println("Nouvelle taille après resampling: " + newPitchWav.length + " échantillons");
-        System.out.println("Durée après resampling: " + String.format("%.2f", newPitchWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
+        log("Nouvelle taille après resampling: " + newPitchWav.length + " échantillons");
+        log("Durée après resampling: " + String.format("%.2f", newPitchWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
         StdAudio.save(outPutFile + "Resampled.wav", newPitchWav);
 
         // Simple dilatation
-        System.out.println("\nApplication de la dilatation simple:");
+        log("\nApplication de la dilatation simple:");
         double[] outputWav = vocodeSimple(newPitchWav, 1.0 / freqScale);
-        System.out.println("Durée après dilatation simple: " + String.format("%.2f", outputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
+        log("Durée après dilatation simple: " + String.format("%.2f", outputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
         StdAudio.save(outPutFile + "Simple.wav", outputWav);
 
         // Simple dilatation with overlaping
         outputWav = vocodeSimpleOver(newPitchWav, 1.0 / freqScale);
-        System.out.println("Durée après dilatation avec fenêtrage: " + String.format("%.2f", outputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
+        log("Durée après dilatation avec fenêtrage: " + String.format("%.2f", outputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
         StdAudio.save(outPutFile + "SimpleOver.wav", outputWav);
 
         // Simple dilatation with overlaping and maximum cross correlation search
         outputWav = vocodeSimpleOverCross(newPitchWav, 1.0 / freqScale);
-        System.out.println("Durée après dilatation avec fenêtrage et cross-correlation: " + String.format("%.2f", outputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
+        log("Durée après dilatation avec fenêtrage et cross-correlation: " + String.format("%.2f", outputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
         StdAudio.save(outPutFile + "SimpleOverCross.wav", outputWav);
 
         joue(outputWav);
 
         // Some echo above all
         outputWav = echo(outputWav, 100, 0.7);
-        System.out.println("Durée finale avec écho: " + String.format("%.2f", outputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
+        log("Durée finale avec écho: " + String.format("%.2f", outputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
         StdAudio.save(outPutFile + "SimpleOverCrossEcho.wav", outputWav);
 
-
-
+        // À la fin du main, fermer le fichier
+        logFile.close();
     }
 
     /**
@@ -71,9 +85,9 @@ public class Pauvocoder {
      * @return resampled wav
      */
     public static double[] resample(double[] inputWav, double freqScale) {
-        System.out.println("Début du resampling:");
-        System.out.println("- Taille originale: " + inputWav.length);
-        System.out.println("- Facteur d'échelle: " + freqScale);
+        log("Début du resampling:");
+        log("- Taille originale: " + inputWav.length);
+        log("- Facteur d'échelle: " + freqScale);
 
         if (freqScale <= 0) {
             throw new IllegalArgumentException("Le facteur de ré-échantillonnage doit être positif");
@@ -114,7 +128,7 @@ public class Pauvocoder {
             }
         }
 
-        System.out.println("- Taille après resampling: " + tailleOutput);
+        log("- Taille après resampling: " + tailleOutput);
         return output;
     }
 
@@ -127,10 +141,10 @@ public class Pauvocoder {
      * @return dilated wav
      */
     public static double[] vocodeSimple(double[] inputWav, double dilatation) {
-        System.out.println("\nDébut de la dilatation simple:");
-        System.out.println("- Taille d'entrée: " + inputWav.length);
-        System.out.println("- Facteur de dilatation: " + dilatation);
-        System.out.println("- Taille de séquence: " + SEQUENCE);
+        log("\nDébut de la dilatation simple:");
+        log("- Taille d'entrée: " + inputWav.length);
+        log("- Facteur de dilatation: " + dilatation);
+        log("- Taille de séquence: " + SEQUENCE);
 
         if (dilatation <= 0) {
             throw new IllegalArgumentException("Le facteur de dilatation doit être positif");
@@ -151,7 +165,7 @@ public class Pauvocoder {
             }
         }
 
-        System.out.println("- Taille de sortie: " + tailleOutput);
+        log("- Taille de sortie: " + tailleOutput);
         return output;
     }
 
@@ -163,10 +177,10 @@ public class Pauvocoder {
      * @return dilated wav
      */
     public static double[] vocodeSimpleOver(double[] inputWav, double dilatation) {
-        System.out.println("\nDébut de la dilatation avec fenêtrage:");
-        System.out.println("- Taille d'entrée: " + inputWav.length);
-        System.out.println("- Facteur de dilatation: " + dilatation);
-        System.out.println("- Taille de séquence: " + SEQUENCE);
+        log("\nDébut de la dilatation avec fenêtrage:");
+        log("- Taille d'entrée: " + inputWav.length);
+        log("- Facteur de dilatation: " + dilatation);
+        log("- Taille de séquence: " + SEQUENCE);
 
         if (dilatation <= 0) {
             throw new IllegalArgumentException("Le facteur de dilatation doit être positif");
@@ -191,7 +205,7 @@ public class Pauvocoder {
             }
         }
 
-        System.out.println("- Taille de sortie: " + tailleOutput);
+        log("- Taille de sortie: " + tailleOutput);
         return output;
     }
 
@@ -203,10 +217,10 @@ public class Pauvocoder {
      * @return dilated wav
      */
     public static double[] vocodeSimpleOverCross(double[] inputWav, double dilatation) {
-        System.out.println("\nDébut de la dilatation avec fenêtrage et cross-correlation:");
-        System.out.println("- Taille d'entrée: " + inputWav.length);
-        System.out.println("- Facteur de dilatation: " + dilatation);
-        System.out.println("- Taille de séquence: " + SEQUENCE);
+        log("\nDébut de la dilatation avec fenêtrage et cross-correlation:");
+        log("- Taille d'entrée: " + inputWav.length);
+        log("- Facteur de dilatation: " + dilatation);
+        log("- Taille de séquence: " + SEQUENCE);
 
         if (dilatation <= 0) {
             throw new IllegalArgumentException("Le facteur de dilatation doit être positif");
@@ -236,7 +250,7 @@ public class Pauvocoder {
             }
         }
 
-        System.out.println("- Taille de sortie: " + tailleOutput);
+        log("- Taille de sortie: " + tailleOutput);
         return output;
     }
 
@@ -259,10 +273,10 @@ public class Pauvocoder {
      * @return wav with echo
      */
     public static double[] echo(double[] wav, double delay, double gain) {
-        System.out.println("\nApplication de l'écho:");
-        System.out.println("- Délai: " + delay + " ms");
-        System.out.println("- Gain: " + gain);
-        System.out.println("- Nombre d'échantillons de délai: " + (int)(delay * StdAudio.SAMPLE_RATE / 1000.0));
+        log("\nApplication de l'écho:");
+        log("- Délai: " + delay + " ms");
+        log("- Gain: " + gain);
+        log("- Nombre d'échantillons de délai: " + (int)(delay * StdAudio.SAMPLE_RATE / 1000.0));
 
         if (gain < 0 || gain > 1) {
             throw new IllegalArgumentException("Le gain doit être compris entre 0 et 1");
@@ -299,6 +313,13 @@ public class Pauvocoder {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
+    private static void log(String message) {
+        System.out.println(message);
+        if (logFile != null) {
+            logFile.println(message);
+            logFile.flush(); // Pour s'assurer que les données sont écrites immédiatement
+        }
+    }
 
 }
 
