@@ -1,4 +1,13 @@
+//==============================================================================
+// Chef de projet : Ethan Rietz
+// Bînome : Gabin Morel
+// Groupe 31
+// Pour les traces d'execution, le programme creer un fichier a part tel que :
+// <nom_audio.wav>_info_<freqScale>.txt
+//==============================================================================
+
 import static java.lang.System.exit;
+
 import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.io.IOException;
@@ -23,13 +32,20 @@ public class Pauvocoder {
 
         String wavInFile = args[0];
         double freqScale = Double.valueOf(args[1]);
-        String outPutFile = wavInFile.split("\\.")[0] + "_" + freqScale + "_";
-        
+        String outPutFile = wavInFile.split("\\.")[0] + "_"
+                + freqScale + "_";
+
         // Création du fichier de log
         try {
-            logFile = new PrintWriter(new FileWriter(wavInFile.split("\\.")[0] + "_info_" + freqScale + ".txt"));
+            logFile = new PrintWriter(new FileWriter(
+                    wavInFile.split("\\.")[0] + "_info_"
+                            + freqScale + ".txt"
+            ));
         } catch (IOException e) {
-            System.err.println("Erreur lors de la création du fichier de log: " + e.getMessage());
+            System.err.println(
+                    "Erreur lors de la création du fichier de log: "
+                            + e.getMessage()
+            );
             exit(1);
         }
 
@@ -40,37 +56,51 @@ public class Pauvocoder {
         // Open input .wev file
         double[] inputWav = StdAudio.read(wavInFile);
 
-        log("Taille du fichier d'entrée: " + inputWav.length + " échantillons");
-        log("Durée du fichier original: " + String.format("%.2f", inputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
+        log("Durée du fichier original: " +
+                String.format("%.2f", inputWav.length
+                        / (double) StdAudio.SAMPLE_RATE) +
+                " secondes");
 
         // Resample test
-        log("\nApplication du resampling...");
-        double[] newPitchWav = resample(inputWav, freqScale);
-        log("Nouvelle taille après resampling: " + newPitchWav.length + " échantillons");
-        log("Durée après resampling: " + String.format("%.2f", newPitchWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
-        StdAudio.save(outPutFile + "Resampled.wav", newPitchWav);
+        log("\nApplication du resampling");
+        double[] nvTaill = resample(inputWav, freqScale);
 
-        // Simple dilatation
-        log("\nApplication de la dilatation simple:");
-        double[] outputWav = vocodeSimple(newPitchWav, 1.0 / freqScale);
-        log("Durée après dilatation simple: " + String.format("%.2f", outputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
+        log("Durée après methode : " +
+                String.format("%.2f", nvTaill.length
+                        / (double) StdAudio.SAMPLE_RATE) +
+                " secondes");
+        StdAudio.save(outPutFile + "Resampled.wav", nvTaill);
+
+        // Vocode simple
+        log("\nApplication de Vocode simple :");
+        double[] outputWav = vocodeSimple(nvTaill, 1.0 / freqScale);
+        log("Durée après methode : " +
+                String.format("%.2f", outputWav.length
+                        / (double) StdAudio.SAMPLE_RATE) + " secondes");
         StdAudio.save(outPutFile + "Simple.wav", outputWav);
 
-        // Simple dilatation with overlaping
-        outputWav = vocodeSimpleOver(newPitchWav, 1.0 / freqScale);
-        log("Durée après dilatation avec fenêtrage: " + String.format("%.2f", outputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
+        // Vocode simple Over
+        outputWav = vocodeSimpleOver(nvTaill, 1.0 / freqScale);
+        log("Durée après methode : " +
+                String.format("%.2f", outputWav.length
+                        / (double) StdAudio.SAMPLE_RATE) + " secondes");
         StdAudio.save(outPutFile + "SimpleOver.wav", outputWav);
 
-        // Simple dilatation with overlaping and maximum cross correlation search
-        outputWav = vocodeSimpleOverCross(newPitchWav, 1.0 / freqScale);
-        log("Durée après dilatation avec fenêtrage et cross-correlation: " + String.format("%.2f", outputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
+        // Vocode simple Over Cross
+        outputWav = vocodeSimpleOverCross(nvTaill, 1.0 / freqScale);
+        log("Durée après methode : " +
+                String.format("%.2f", outputWav.length
+                        / (double) StdAudio.SAMPLE_RATE) +
+                " secondes");
         StdAudio.save(outPutFile + "SimpleOverCross.wav", outputWav);
 
         joue(outputWav);
 
-        // Some echo above all
+        // Echo
         outputWav = echo(outputWav, 100, 0.7);
-        log("Durée finale avec écho: " + String.format("%.2f", outputWav.length / (double)StdAudio.SAMPLE_RATE) + " secondes");
+        log("Durée finale avec écho: " +
+                String.format("%.2f", outputWav.length
+                        / (double) StdAudio.SAMPLE_RATE) + " secondes");
         StdAudio.save(outPutFile + "SimpleOverCrossEcho.wav", outputWav);
 
         // À la fin du main, fermer le fichier
@@ -85,12 +115,12 @@ public class Pauvocoder {
      * @return resampled wav
      */
     public static double[] resample(double[] inputWav, double freqScale) {
-        log("Début du resampling:");
         log("- Taille originale: " + inputWav.length);
         log("- Facteur d'échelle: " + freqScale);
 
         if (freqScale <= 0) {
-            throw new IllegalArgumentException("Le facteur de ré-échantillonnage doit être positif");
+            throw new IllegalArgumentException("Le facteur de " +
+                    "ré-échantillonnage doit être positif");
         }
 
         // Si freqScale est égal à 1, aucun ré-échantillonnage nécessaire
@@ -124,11 +154,12 @@ public class Pauvocoder {
                 int index2 = Math.min(index1 + 1, inputWav.length - 1);
                 double frac = inputIndex - index1;
 
-                output[i] = inputWav[index1] * (1 - frac) + inputWav[index2] * frac;
+                output[i] = inputWav[index1] * (1 - frac) + inputWav[index2]
+                        * frac;
             }
         }
 
-        log("- Taille après resampling: " + tailleOutput);
+        log("- Taille après methode : " + tailleOutput);
         return output;
     }
 
@@ -141,13 +172,14 @@ public class Pauvocoder {
      * @return dilated wav
      */
     public static double[] vocodeSimple(double[] inputWav, double dilatation) {
-        log("\nDébut de la dilatation simple:");
+        log("\nDébut de vocode simple :");
         log("- Taille d'entrée: " + inputWav.length);
         log("- Facteur de dilatation: " + dilatation);
         log("- Taille de séquence: " + SEQUENCE);
 
         if (dilatation <= 0) {
-            throw new IllegalArgumentException("Le facteur de dilatation doit être positif");
+            throw new IllegalArgumentException("Le facteur de dilatation " +
+                    "doit être positif");
         }
 
         // Calculer la taille du signal de sortie
@@ -160,7 +192,8 @@ public class Pauvocoder {
             int positionInput = (int) (i * dilatation);
 
             // Copier la séquence
-            for (int j = 0; j < SEQUENCE && i + j < tailleOutput && positionInput + j < inputWav.length; j++) {
+            for (int j = 0; j < SEQUENCE && i + j < tailleOutput
+                    && positionInput + j < inputWav.length; j++) {
                 output[i + j] = inputWav[positionInput + j];
             }
         }
@@ -177,13 +210,14 @@ public class Pauvocoder {
      * @return dilated wav
      */
     public static double[] vocodeSimpleOver(double[] inputWav, double dilatation) {
-        log("\nDébut de la dilatation avec fenêtrage:");
+        log("\nDébut de vocode simple over:");
         log("- Taille d'entrée: " + inputWav.length);
         log("- Facteur de dilatation: " + dilatation);
         log("- Taille de séquence: " + SEQUENCE);
 
         if (dilatation <= 0) {
-            throw new IllegalArgumentException("Le facteur de dilatation doit être positif");
+            throw new IllegalArgumentException("Le facteur de " +
+                    "dilatation doit être positif");
         }
 
         // Calculer la taille du signal de sortie
@@ -196,12 +230,14 @@ public class Pauvocoder {
             int positionInput = (int) (i * dilatation);
 
             // Copier la séquence avec fenêtrage simple
-            for (int j = 0; j < SEQUENCE && i + j < tailleOutput && positionInput + j < inputWav.length; j++) {
+            for (int j = 0; j < SEQUENCE && i + j < tailleOutput
+                    && positionInput + j < inputWav.length; j++) {
                 // Fenêtre triangulaire simple
-                double fenetre = (j < SEQUENCE/2) ? (j / (double)(SEQUENCE/2))
-                                               : (2 - j / (double)(SEQUENCE/2));
-                
-                output[i + j] = inputWav[positionInput + j] * fenetre;
+                double window = (j < SEQUENCE / 2)
+                        ? (j / (double) (SEQUENCE / 2))
+                        : (2 - j / (double) (SEQUENCE / 2));
+
+                output[i + j] = inputWav[positionInput + j] * window;
             }
         }
 
@@ -217,13 +253,14 @@ public class Pauvocoder {
      * @return dilated wav
      */
     public static double[] vocodeSimpleOverCross(double[] inputWav, double dilatation) {
-        log("\nDébut de la dilatation avec fenêtrage et cross-correlation:");
+        log("\nDébut de vocode simple over cross :");
         log("- Taille d'entrée: " + inputWav.length);
         log("- Facteur de dilatation: " + dilatation);
         log("- Taille de séquence: " + SEQUENCE);
 
         if (dilatation <= 0) {
-            throw new IllegalArgumentException("Le facteur de dilatation doit être positif");
+            throw new IllegalArgumentException("Le facteur " +
+                    "de dilatation doit être positif");
         }
 
         // Calculer la taille du signal de sortie
@@ -234,7 +271,7 @@ public class Pauvocoder {
         for (int i = 0; i < tailleOutput; i += SEQUENCE) {
             // Position dans le signal d'entrée
             int positionInput = (int) (i * dilatation);
-            
+
             // Vérifier qu'on ne dépasse pas les limites
             if (positionInput + SEQUENCE >= inputWav.length) {
                 break;
@@ -243,10 +280,11 @@ public class Pauvocoder {
             // Copie directe de la séquence avec fenêtrage simple
             for (int j = 0; j < SEQUENCE && i + j < tailleOutput; j++) {
                 // Fenêtre triangulaire simple
-                double fenetre = (j < SEQUENCE/2) ? (j / (double)(SEQUENCE/2))
-                                               : (2 - j / (double)(SEQUENCE/2));
-                
-                output[i + j] = inputWav[positionInput + j] * fenetre;
+                double window = (j < SEQUENCE / 2)
+                        ? (j / (double) (SEQUENCE / 2))
+                        : (2 - j / (double) (SEQUENCE / 2));
+
+                output[i + j] = inputWav[positionInput + j] * window;
             }
         }
 
@@ -260,8 +298,14 @@ public class Pauvocoder {
      * @param wav
      */
     public static void joue(double[] wav) {
-        // Jouer le son
-        StdAudio.play(wav);
+        // Créer un thread pour la lecture audio
+        Thread audioThread = new Thread(() -> {
+            StdAudio.play(wav);
+        });
+        audioThread.start();
+
+        // Afficher la forme d'onde pendant la lecture
+        displayWaveform(wav);
     }
 
     /**
@@ -276,10 +320,12 @@ public class Pauvocoder {
         log("\nApplication de l'écho:");
         log("- Délai: " + delay + " ms");
         log("- Gain: " + gain);
-        log("- Nombre d'échantillons de délai: " + (int)(delay * StdAudio.SAMPLE_RATE / 1000.0));
+        log("- Nombre d'échantillons de délai: " +
+                (int) (delay * StdAudio.SAMPLE_RATE / 1000.0));
 
         if (gain < 0 || gain > 1) {
-            throw new IllegalArgumentException("Le gain doit être compris entre 0 et 1");
+            throw new IllegalArgumentException("Le gain doit être " +
+                    "compris entre 0 et 1");
         }
 
         // Convertir le délai de millisecondes en nombre d'échantillons
@@ -307,10 +353,88 @@ public class Pauvocoder {
 
     /**
      * Display the waveform
+     *
      * @param wav
      */
     public static void displayWaveform(double[] wav) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        // Configuration de la fenêtre d'affichage
+        int tailleFenetre = 44100; // 1 seconde d'échantillons à 44.1kHz
+        int largeurFenetre = 1000;
+        int hauteurFenetre = 400;
+
+        StdDraw.setCanvasSize(largeurFenetre, hauteurFenetre);
+        StdDraw.setXscale(0, largeurFenetre);
+        StdDraw.setYscale(-1.2, 1.2);
+        StdDraw.enableDoubleBuffering();
+
+        // Paramètres d'affichage
+        int echantillonsParPixel = tailleFenetre / largeurFenetre;
+        // Réduit encore la fréquence de mise à jour
+        int pasDefilement = tailleFenetre / 25;
+
+        // Pré-calcul des formes d'onde pour réduire les calculs
+        // pendant l'affichage
+        int nombreFrames = wav.length / pasDefilement + 1;
+        // [frame][pixel][min/max]
+        double[][][] frames = new double[nombreFrames][largeurFenetre][2];
+
+        // Pré-calcul de toutes les frames
+        for (int frame = 0; frame < nombreFrames; frame++) {
+            int basePosition = frame * pasDefilement;
+            for (int i = 0; i < largeurFenetre; i++) {
+                int debutEchantillon = basePosition
+                        + (i * echantillonsParPixel);
+                if (debutEchantillon + echantillonsParPixel < wav.length) {
+                    double min = wav[debutEchantillon];
+                    double max = min;
+
+                    for (int j = 0; j < echantillonsParPixel
+                            && debutEchantillon + j < wav.length; j++) {
+                        double val = wav[debutEchantillon + j];
+                        min = Math.min(min, val);
+                        max = Math.max(max, val);
+                    }
+
+                    frames[frame][i][0] = min;
+                    frames[frame][i][1] = max;
+                }
+            }
+        }
+
+        // Boucle d'affichage principale
+        int frameActuelle = 0;
+        while (frameActuelle < nombreFrames) {
+            StdDraw.clear(StdDraw.WHITE);
+            StdDraw.setPenColor(0, 0, 200);
+
+            // Dessiner la frame actuelle
+            for (int i = 0; i < largeurFenetre; i++) {
+                double min = frames[frameActuelle][i][0];
+                double max = frames[frameActuelle][i][1];
+                if (max != 0 || min != 0) {
+                    StdDraw.line(i, min, i, max);
+                }
+            }
+
+            // Afficher le temps courant
+            StdDraw.setPenColor(StdDraw.BLACK);
+            double tempsCourant = (frameActuelle * pasDefilement)
+                    / (double) StdAudio.SAMPLE_RATE;
+            StdDraw.text(largeurFenetre / 2, -1.1,
+                    String.format("Temps: %.2f s", tempsCourant));
+
+            StdDraw.show();
+
+            // Contrôle de la vitesse d'affichage
+            try {
+                Thread.sleep(40); // ~25 FPS
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+
+            frameActuelle++;
+        }
     }
 
     private static void log(String message) {
