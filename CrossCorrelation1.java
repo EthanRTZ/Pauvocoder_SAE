@@ -3,6 +3,10 @@ import java.util.Arrays;
 public class CrossCorrelation1 {
 
     public static double[] crosscorrelation(double[] sig1, double[] sig2) {
+        if (sig1.length != sig2.length) {
+            return null;
+        }
+        
         int n = sig1.length;
         double[] result = new double[n];
 
